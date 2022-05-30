@@ -1,5 +1,8 @@
 module Main where
 
+import Control.Applicative
+import Data.Char
+
 data JsonValue = JsonNull
 		| JsonBool Bool
 		| JsonNumber Integer -- TODO: support floats
@@ -25,11 +28,34 @@ instance Applicative Parser where
 		(input'', a) <- p2 input'
 		Just (input'', f a)
 
+instance Alternative Parser where
+	empty = Parser $ \_ -> Nothing
+
+	(Parser p1) <|> (Parser p2) = Parser $ \input -> 
+		p1 input <|> p2 input
+
 jsonNull :: Parser JsonValue
 jsonNull = (\_ -> JsonNull) <$> stringP "null"
 
 jsonBool :: Parser JsonValue
-jsonBool = undefined
+jsonBool = f <$> (stringP "true" <|> stringP "false")
+	where f "true"  = JsonBool True
+	      f "false" = JsonBool False
+	      f _       = undefined
+
+spanP :: (Char -> Bool) -> Parser String
+spanP f = Parser $ \input -> let (token, rest) = span f input in Just (rest, token)
+
+notNull :: Parser [a] -> Parser [a]
+notNull (Parser p) = Parser $ \input -> do
+	(input', xs) <- p input
+	if null xs
+		then Nothing
+		else Just (input', xs)
+ 
+jsonNumber :: Parser JsonValue
+jsonNumber = f <$> notNull(spanP isDigit) 
+	where f ds = JsonNumber $ read ds
 
 charP :: Char -> Parser Char
 charP x = Parser f
@@ -42,7 +68,7 @@ stringP :: String -> Parser String
 stringP = sequenceA . map charP
 
 jsonValue :: Parser JsonValue
-jsonValue = undefined
+jsonValue = jsonNull <|> jsonBool <|> jsonNumber
 
 main :: IO ()
 main = undefined
