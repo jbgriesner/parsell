@@ -67,8 +67,14 @@ charP x = Parser f
 stringP :: String -> Parser String
 stringP = sequenceA . map charP
 
+jsonString :: Parser JsonValue
+jsonString = JsonString <$> (charP '"' *> stringLiteral <* charP '"')
+
+stringLiteral :: Parser String
+stringLiteral = spanP (/= '"')
+
 jsonValue :: Parser JsonValue
-jsonValue = jsonNull <|> jsonBool <|> jsonNumber
+jsonValue = jsonNull <|> jsonBool <|> jsonNumber <|> jsonString
 
 main :: IO ()
 main = undefined
